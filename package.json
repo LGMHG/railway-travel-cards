@@ -1,0 +1,15 @@
+{
+  "name": "railway-travel-cards",
+  "version": "0.1.0",
+  "description": "12306铁路报销凭证打印生成",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@fontsource/noto-serif-sc": "5.3.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "5.4.624"
+  }
+}

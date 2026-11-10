@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#154f51" />
+    <link rel="icon" href="data:," />
+    <title>12306铁路报销凭证打印生成</title>
+    <link rel="stylesheet" href="./vendor/fonts/font.css" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <a class="brand" href="./"
+          ><i class="rails" aria-hidden="true"></i>铁路打印室</a
+        ><span class="privacy"><i></i> 本机处理</span>
+      </div>
+    </header>
+    <main>
+      <div class="intro">
+        <h1>12306铁路报销凭证打印生成</h1>
+        <p>填写行程或导入官方 PDF，预览后导出图片与打印文件。</p>
+      </div>
+      <div class="workspace">
+        <section class="panel entry">
+          <h2>添加记录</h2>
+          <div class="tabs">
+            <button id="manual-tab" aria-pressed="true">填写行程</button
+            ><button id="import-tab" aria-pressed="false">导入官方 PDF</button>
+          </div>
+          <form id="form">
+            <div class="form-grid">
+              <label class="wide"
+                >记录类型<select name="type">
+                  <option value="trip">乘车记录</option>
+                  <option value="fee">改签费</option>
+                </select></label
+              >
+              <label
+                ><span id="date-label">乘车日期 *</span
+                ><input type="date" name="date" required
+              /></label>
+              <label data-trip
+                >车次 *<input
+                  name="train"
+                  maxlength="20"
+                  placeholder="如 G1234"
+                  required
+              /></label>
+              <label data-trip
+                >出发站 *<input
+                  name="departure"
+                  maxlength="40"
+                  placeholder="输入站名"
+                  required
+              /></label>
+              <label data-trip
+                >到达站 *<input
+                  name="arrival"
+                  maxlength="40"
+                  placeholder="输入站名"
+                  required
+              /></label>
+              <label data-fee hidden
+                >费用（元）*<input
+                  type="number"
+                  name="fee"
+                  min="0"
+                  step=".01"
+                  placeholder="0.00"
+              /></label>
+              <label data-fee class="wide" hidden
+                >关联行程（选填）<input
+                  name="related"
+                  maxlength="80"
+                  placeholder="如 G1234 · 云桥站至南川站"
+              /></label>
+            </div>
+            <details id="extras">
+              <summary>补充票面信息 <small>选填</small></summary>
+              <div class="form-grid">
+                <label data-trip
+                  >发车时间<input type="time" name="time"
+                /></label>
+                <label data-trip
+                  >票价（元）<input
+                    type="number"
+                    name="fare"
+                    min="0"
+                    step=".01"
+                    placeholder="0.00"
+                /></label>
+                <label data-trip
+                  >席别<select name="seatClass">
+                    <option value="">请选择</option>
+                    <option>二等座</option>
+                    <option>一等座</option>
+                    <option>商务座</option>
+                    <option>特等座</option>
+                    <option>硬座</option>
+                    <option>软座</option>
+                    <option>硬卧</option>
+                    <option>软卧</option>
+                    <option>动卧</option>
+                    <option>无座</option>
+                  </select></label
+                >
+                <label data-trip
+                  >车厢<input name="coach" maxlength="8" placeholder="如 03"
+                /></label>
+                <label data-trip id="seat-field"
+                  >座号或铺号<input
+                    name="seat"
+                    maxlength="12"
+                    placeholder="如 08A"
+                /></label>
+                <label id="berth-field" hidden
+                  >铺位<select name="berth">
+                    <option value="">请选择</option>
+                    <option>上铺</option>
+                    <option>中铺</option>
+                    <option>下铺</option>
+                  </select></label
+                >
+                <label
+                  >乘车人姓名<input
+                    name="name"
+                    maxlength="32"
+                    autocomplete="off"
+                /></label>
+                <label class="wide"
+                  >已打码的证件号<input
+                    name="identity"
+                    maxlength="32"
+                    placeholder="如 12**************34"
+                    autocomplete="off"
+                /></label>
+              </div>
+            </details>
+            <div class="actions">
+              <button class="primary" id="add">＋ 添加到清单</button
+              ><button type="button" id="cancel-edit" hidden>取消编辑</button>
+            </div>
+          </form>
+          <div id="import-panel" hidden>
+            <label class="upload"
+              >选择 12306 官方 PDF<input
+                id="files"
+                type="file"
+                multiple
+                accept=".pdf,application/pdf"
+            /></label>
+            <p class="hint">
+              支持一次选择多个文件。每一页会按原顺序加入清单，可直接按原尺寸导出。
+            </p>
+            <a
+              href="https://passport.12306.cn/otn/view/invoice_index.html"
+              target="_blank"
+              rel="noreferrer"
+              >12306 电子发票说明 ↗</a
+            >
+          </div>
+        </section>
+        <section class="panel proof">
+          <div class="heading">
+            <h2>票面预览</h2>
+            <span class="badge" id="proof-label">示例票面</span>
+          </div>
+          <div class="stage">
+            <canvas id="proof" aria-label="票面预览"></canvas>
+          </div>
+          <p id="proof-caption" class="hint">
+            虚构行程示例 · 填写必填项后显示你的票面
+          </p>
+        </section>
+      </div>
+      <section class="panel queue">
+        <div class="heading">
+          <h2>排印清单</h2>
+          <span class="badge" id="count">已选 0 / 0</span>
+        </div>
+        <div id="empty">
+          添加行程或导入 PDF 后，可在这里调整顺序并勾选导出项。
+        </div>
+        <div id="rows"></div>
+        <div class="exports">
+          <label
+            >导出方式<select id="format">
+              <option value="a4">A4 十张打印 PDF</option>
+              <option value="original">官方 PDF 原尺寸</option>
+              <option value="single">单张 PNG</option>
+              <option value="collage">多张拼图 PNG</option>
+            </select></label
+          ><button id="layout" disabled>排版预览</button
+          ><button id="download" class="primary" disabled>导出文件 ↓</button>
+        </div>
+        <p id="guide" class="hint"></p>
+      </section>
+      <div id="status" role="status" aria-live="polite"></div>
+    </main>
+    <dialog id="dialog">
+      <div class="heading">
+        <h2>排版预览</h2>
+        <button id="close">关闭</button>
+      </div>
+      <div class="sheet"><canvas id="sheet"></canvas></div>
+      <div class="pager">
+        <button id="prev">上一页</button><span id="page-info"></span
+        ><button id="next">下一页</button>
+      </div>
+    </dialog>
+    <script defer src="./vendor/pdf-lib.min.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
