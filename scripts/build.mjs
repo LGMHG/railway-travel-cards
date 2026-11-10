@@ -5,6 +5,10 @@ await mkdir(output, { recursive: true });
 await cp("web", output, { recursive: true });
 const vendor = output + "/vendor";
 await mkdir(vendor + "/fonts/files", { recursive: true });
+await cp("node_modules/pinyin-pro/dist/esm", vendor + "/pinyin/esm", {
+  recursive: true,
+});
+await cp("node_modules/pinyin-pro/LICENSE", vendor + "/pinyin/LICENSE");
 const pdfjs = "node_modules/pdfjs-dist/";
 for (const asset of [
   "build/pdf.min.mjs",

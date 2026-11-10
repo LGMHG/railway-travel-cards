@@ -1,5 +1,5 @@
 import { demo, recordCanvas, readPdf, title } from "./render.js";
-import { a4Preview, collage, makePdf, png, save } from "./output.js";
+import { a4Preview, collage, makePdf, png, singlePng, save } from "./output.js";
 
 const $ = (id) => document.getElementById(id);
 const form = $("form"),
@@ -312,8 +312,7 @@ $("download").onclick = async () => {
   updateControls();
   notify("正在生成文件…");
   try {
-    if (type === "single")
-      save(await png(await recordCanvas(rows[0])), "单张记录.png");
+    if (type === "single") save(await singlePng(rows[0]), "单张记录.png");
     else if (type === "collage")
       save(await png(await collage(rows)), "多张拼图.png");
     else

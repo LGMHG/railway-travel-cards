@@ -101,6 +101,48 @@ export function png(image) {
     ),
   );
 }
+export async function singlePng(record) {
+  const blob = await png(await recordCanvas(record));
+  if (record.type === "pdf") return blob;
+  // PNG pHYs chunk: 11,811 pixels/metre on each axis (300 DPI), including CRC.
+  const density = Uint8Array.of(
+    0,
+    0,
+    0,
+    9,
+    112,
+    72,
+    89,
+    115,
+    0,
+    0,
+    46,
+    35,
+    0,
+    0,
+    46,
+    35,
+    1,
+    120,
+    165,
+    63,
+    118,
+  );
+  const data = await blob.arrayBuffer(),
+    view = new DataView(data);
+  for (let offset = 8; offset < data.byteLength; ) {
+    const size = view.getUint32(offset) + 12,
+      type = view.getUint32(offset + 4);
+    if (type === 0x70485973 || type === 0x49444154) {
+      const end = type === 0x70485973 ? offset + size : offset;
+      return new Blob([blob.slice(0, offset), density, blob.slice(end)], {
+        type: "image/png",
+      });
+    }
+    offset += size;
+  }
+  throw new Error("PNG 文件缺少图像数据");
+}
 export async function makePdf(records, original) {
   if (
     original &&
