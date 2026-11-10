@@ -4,9 +4,9 @@ export const WIDTH = 1586,
 export const demo = {
   type: "trip",
   date: "2026-05-16",
-  departure: "云桥",
-  arrival: "南川",
-  train: "G1234",
+  departure: "云灯谷",
+  arrival: "星栖湾",
+  train: "DEMO01",
   time: "09:20",
   seatClass: "二等座",
   coach: "03",
@@ -49,7 +49,7 @@ export async function recordCanvas(record, width = WIDTH, maxHeight = 4096) {
   }
   return drawTicket(record, canvas, width);
 }
-export async function readPdf(file) {
+export async function readPdf(file, original = true) {
   const pdfjs = await import("./vendor/pdfjs/build/pdf.min.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     "./vendor/pdfjs/build/pdf.worker.min.mjs",
@@ -70,13 +70,12 @@ export async function readPdf(file) {
   try {
     const records = [];
     for (let number = 1; number <= reader.numPages; number++) {
-      const page = await reader.getPage(number);
-      const { width, height } = page.getViewport({ scale: 1 });
+      const view = original ? (await reader.getPage(number)).getViewport({ scale: 1 }) : null;
       records.push({
         type: "pdf",
         source,
         page: number,
-        ratio: width / height,
+        ratio: view ? view.width / view.height : undefined,
       });
     }
     return records;

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  displayIdentity,
+  applyPassenger,
   parsePaste,
   parseScreenshot,
   legacy,
@@ -22,11 +24,13 @@ test("free text and Excel headers, optional blanks, identity masking", () => {
   );
   assert.equal(tab.record.fare, "0");
   assert.deepEqual(problems(tab.record), []);
-  assert(
-    !JSON.stringify(
-      parsePaste("2026-01-01 G1 云桥→南川 110101199001010011"),
-    ).includes("110101199001010011"),
+  const [entry] = parsePaste(
+    "2026-01-01 DEMO01 云灯谷→星栖湾 110101199001010011",
   );
+  assert.equal(entry.record.train, "DEMO01");
+  assert.deepEqual(problems(entry.record), []);
+  assert.equal(displayIdentity(entry.record.identity), "110101********0011");
+  assert(!entry.sources[0].text.includes(entry.record.identity));
   assert(problems({ ...a.record, date: "2026-02-30" }).length);
 });
 const line = (text, y, x = 0.3) => ({ text, y, x, confidence: 95 });
@@ -104,13 +108,36 @@ test("old JSON keeps fee, display identifiers, no-seat, source and masked id", (
   assert.equal(r.fee, "2");
   assert.equal(r.serial, "EXAMPLE");
   assert.equal(r.provenance.kind, "screenshot");
-  assert(!r.identity.includes("1990"));
+  assert.equal(displayIdentity(r.identity), "110101********0011");
+  assert.equal(displayIdentity(r.identity, "raw"), "110101199001010011");
   assert.deepEqual(problems(r), []);
   assert.equal(
     legacy({ standing: true, seat: "12", seat_class: "硬座" }).seat,
     "",
   );
 });
+test("passenger defaults fill blanks while preserving other travellers and masked source values", () => {
+  const defaults = {
+    name: "虚构甲",
+    identity: "P12345678",
+    identityMode: "raw",
+  };
+  const own = { name: "", identity: "" };
+  applyPassenger(own, defaults);
+  assert.deepEqual(own, defaults);
+  const other = { name: "虚构乙", identity: "" };
+  applyPassenger(other, defaults);
+  assert.equal(other.identity, "");
+  assert.equal(other.name, "虚构乙");
+  const maskedSource = { name: defaults.name, identity: "P1****78" };
+  applyPassenger(maskedSource, defaults);
+  assert.equal(displayIdentity(maskedSource.identity, "raw"), "P1****78");
+  assert.equal(displayIdentity(own.identity, "auto"), "P1****78");
+  assert.equal(displayIdentity(own.identity, "hide"), "");
+  for (const mode of ["auto", "raw", "hide"])
+    assert.equal(displayIdentity("", mode), "");
+});
+
 const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 const q = {
   date: today,

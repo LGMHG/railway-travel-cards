@@ -1,3 +1,5 @@
+import { identityModes } from "./batch-data.js";
+import { invoiceDrafts } from "./invoice.js";
 import { initBatch } from "./batch.js";
 import { demo, recordCanvas, readPdf, title } from "./render.js";
 import { a4Preview, collage, makePdf, png, singlePng, save } from "./output.js";
@@ -7,7 +9,15 @@ const form = $("form"),
   fields = form.elements,
   format = $("format"),
   dialog = $("dialog");
+for (const select of document.querySelectorAll("[data-id-mode]")) {
+  for (const [value, label] of Object.entries(identityModes))
+    select.add(new Option(label, value));
+}
+$("batch-mode").onchange = () => {
+  $("default-id-field").hidden = $("batch-mode").value === "hide";
+};
 const items = [];
+let lastDraft;
 let mode = "manual",
   editing = null,
   proofVersion = 0,
@@ -28,6 +38,7 @@ function renderInto(target, image) {
 }
 function visibility() {
   const trip = fields.type.value === "trip";
+  $("manual-id-field").hidden = fields.identityMode.value === "hide";
   for (const e of document.querySelectorAll("[data-trip]")) e.hidden = !trip;
   for (const e of document.querySelectorAll("[data-fee]")) e.hidden = trip;
   for (const key of ["train", "departure", "arrival"])
@@ -44,6 +55,7 @@ function readForm() {
     [...new FormData(form)].map(([k, v]) => [k, v.trim()]),
   );
   if (values.train) values.train = values.train.toUpperCase();
+  values.identity = fields.identity.value.trim();
   return values;
 }
 function validate(r) {
@@ -56,11 +68,6 @@ function validate(r) {
   )
     return "请填写车次、出发站和到达站";
   if (r.type === "fee" && !r.fee) return "请填写改签费用";
-  if (
-    r.identity &&
-    !/^(?=.{4,32}$)[A-Za-z0-9]*\*{2,}[A-Za-z0-9]*$/.test(r.identity)
-  )
-    return "证件号请只填打码文本，中间至少使用两个 *";
   if (
     [...form.querySelectorAll("input")].some(
       (el) => !el.disabled && !el.validity.valid,
@@ -97,15 +104,27 @@ function switchMode(next) {
   $("batch-tab").setAttribute("aria-pressed", String(next === "batch"));
   $("batch-panel").hidden = next !== "batch";
   form.hidden = next !== "manual";
+  $("passenger-defaults").hidden = next === "manual";
   $("import-panel").hidden = next !== "import";
   if (next === "manual") {
     visibility();
     draft();
-  } else if (next === "import") {
-    const row = items.find((i) => i.type === "pdf");
-    if (row) showItem(row);
-    else proof(demo, "示例票面", "选择官方 PDF 后显示页面预览");
-  }
+  } else if (lastDraft) showDraft(lastDraft);
+  else proof(demo, "示例票面", "导入行程后显示你的蓝色票根");
+}
+function showDraft(record) {
+  lastDraft = record;
+  return proof(
+    record,
+    "待核对票根",
+    [
+      record.date,
+      record.train,
+      [record.departure, record.arrival].filter(Boolean).join(" → "),
+    ]
+      .filter(Boolean)
+      .join(" · ") || "可在核对表补填信息",
+  );
 }
 function resetForm() {
   form.reset();
@@ -155,12 +174,12 @@ function updateControls() {
     format.value = kind === "pdf" ? "original" : "a4";
   $("count").textContent = "已选 " + n + " / " + items.length;
   $("download").disabled = $("layout").disabled = !n || busy;
-  $("files").disabled = busy;
+  $("files").disabled = $("original-files").disabled = busy;
   $("guide").textContent = {
     a4: "A4 纵向 · 两列五行 · 每张票面宽 85.6 毫米。打印时选择 A4、实际大小／100%。",
     original:
       "按原页面尺寸输出。打印时按文件页面大小选纸，缩放选择实际大小／100%。",
-    single: "导出当前勾选的单张图片。手填票面为 1586 × 992 像素。",
+    single: "导出当前勾选的单张图片。蓝色票根为 1586 × 992 像素。",
     collage: "按清单顺序从左至右双列拼接，最后一行自动留白。",
   }[format.value];
 }
@@ -247,15 +266,20 @@ $("cancel-edit").onclick = () => {
   resetForm();
   draft();
 };
-initBatch((records) => {
-  items.push(...records);
-  refresh();
-  if (records.length) showItem(records[0]);
-}, notify);
+const batch = initBatch(
+  (records) => {
+    items.push(...records);
+    refresh();
+    if (records.length) showItem(records[0]);
+  },
+  notify,
+  showDraft,
+);
 $("batch-tab").onclick = () => switchMode("batch");
 $("manual-tab").onclick = () => switchMode("manual");
 $("import-tab").onclick = () => switchMode("import");
-$("files").onchange = async (e) => {
+async function importFiles(e) {
+  const original = e.target.id === "original-files";
   const files = [...e.target.files];
   if (!files.length) return;
   busy = true;
@@ -265,7 +289,9 @@ $("files").onchange = async (e) => {
   const errors = [];
   for (const file of files) {
     try {
-      added.push(...(await readPdf(file)));
+      const pages = await readPdf(file, original);
+      if (original) added.push(...pages);
+      else added.push(...(await invoiceDrafts(file, pages, notify)));
     } catch (error) {
       errors.push(
         file.name +
@@ -276,13 +302,23 @@ $("files").onchange = async (e) => {
       );
     }
   }
-  for (const r of added) items.push({ ...r, checked: true });
+  if (original) items.push(...added.map((r) => ({ ...r, checked: true })));
+  const count = original ? added.length : batch.add(added);
   e.target.value = "";
   busy = false;
   refresh();
-  if (added.length) showItem(added[0]);
-  notify(["已导入 " + added.length + " 页", ...errors].join("　"));
-};
+  if (original && added.length) showItem(added[0]);
+  notify(
+    [
+      "已导入 " +
+        count +
+        (original ? " 页" : " 条行程") +
+        (count < added.length ? "，已跳过重复发票" : ""),
+      ...errors,
+    ].join("　"),
+  );
+}
+$("files").onchange = $("original-files").onchange = importFiles;
 const numPages = () =>
   sheetFormat === "a4"
     ? Math.ceil(sheetRecords.length / 10)

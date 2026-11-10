@@ -13,7 +13,8 @@ export const labels = {
   fee: "改签费",
   related: "关联行程",
   name: "乘车人",
-  identity: "打码证件号",
+  identityMode: "证件号显示方式",
+  identity: "证件号",
   departureEn: "出发站拼音",
   arrivalEn: "到达站拼音",
 };
@@ -23,15 +24,52 @@ export const masked = (text) =>
     const digits = value.replace(/[ \t-]/g, "");
     return digits.slice(0, 6) + "********" + digits.slice(-4);
   });
-export const safeId = (s) =>
-  !s || /^(?=.{4,32}$)[a-z\d]*\*{2,}[a-z\d]*$/i.test(s);
+export const identityModes = {
+  auto: "自动打码",
+  raw: "原样显示",
+  hide: "不显示证件号",
+};
+
+export function displayIdentity(value, mode = "auto") {
+  const id = str(value);
+  if (!id || mode === "hide") return "";
+  if (mode === "raw" || /[*＊•●]/.test(id)) return id;
+  const compact = id.replace(/[\s-]/g, "");
+  if (/^\d{17}[\dx]$/i.test(compact)) return masked(compact);
+  if (compact.length <= 4) return "****";
+  return compact.slice(0, 2) + "****" + compact.slice(-2);
+}
+
+export function applyPassenger(record, defaults, overwrite = false) {
+  record.identityMode = defaults.identityMode || "auto";
+  if (!overwrite && record.name && record.name !== defaults.name) return;
+  if (
+    !overwrite &&
+    record.identity &&
+    defaults.identity &&
+    displayIdentity(record.identity) !== displayIdentity(defaults.identity)
+  )
+    return;
+  if (
+    overwrite &&
+    defaults.name &&
+    record.name &&
+    record.name !== defaults.name
+  )
+    record.identity = "";
+  if (defaults.name && (overwrite || !record.name)) record.name = defaults.name;
+  if (defaults.identity && (overwrite || !record.identity))
+    record.identity = defaults.identity;
+}
+
 export const normalized = (s) =>
   str(s)
     .normalize("NFKC")
     .replace(/(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, "");
 const seatClassPattern =
   /新空调(?:硬卧|硬座)|高级软卧|二等座|一等座|商务座|特等座|无座|硬卧|软卧|动卧|硬座|软座/;
-const trainPattern = /(?<![A-Z0-9])([GDCZTKYSLA]\s*\d{1,5})(?![A-Z0-9])/i;
+const trainPattern =
+  /(?<![A-Z0-9])((?:DEMO|[GDCZTKYSLA])\s*\d{1,5})(?![A-Z0-9])/i;
 function parseDate(text) {
   const m = text.match(
     /(20\d{2})\s*[年.\/-]\s*(\d{1,2})\s*[月.\/-]\s*(\d{1,2})(?:日)?/,
@@ -55,7 +93,6 @@ export function problems(r) {
     if (str(r[key]) && !/^\d+(?:\.\d{1,2})?$/.test(r[key]))
       out.push(labels[key]);
   if (r.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time)) out.push("开车时间");
-  if (!safeId(r.identity)) out.push("打码证件号");
   return [...new Set(out)];
 }
 function seatFields(text) {
@@ -70,7 +107,7 @@ function seatFields(text) {
   };
 }
 function fieldsFromText(raw) {
-  const text = masked(raw).normalize("NFKC");
+  const text = str(raw).normalize("NFKC");
   const route = text.match(
     /([\u3400-\u9fff]{1,20})\s*(?:→|⇒|->|—|至|到|－|-)\s*([\u3400-\u9fff]{1,20})/,
   );
@@ -108,7 +145,12 @@ function fieldsFromText(raw) {
     name:
       text.match(/(?:姓名|乘车人|旅客)[:：\s]+([\u3400-\u9fff·]{2,16})/)?.[1] ||
       "",
-    identity: text.match(/[A-Za-z\d]*\*{2,}[A-Za-z\d]*/)?.[0] || "",
+    identity:
+      text.match(/(?:证件号|身份证号?)\s*[:：]?\s*([A-Za-z\d*]{4,32})/)?.[1] ||
+      text.match(
+        /(?<![A-Za-z\d])(?:\d{17}[\dXx]|[A-Za-z\d]*\*{2,}[A-Za-z\d]*)(?![A-Za-z\d])/,
+      )?.[0] ||
+      "",
   };
 }
 export function legacy(row) {
@@ -127,8 +169,7 @@ export function legacy(row) {
   out.date = parseDate(out.date) || out.date;
   out.train = out.train.toUpperCase();
   out.seatClass = str(row.seat_class || out.seatClass);
-  out.identity = masked(row.id_number || out.identity);
-  if (out.identity && !safeId(out.identity)) out.identity = "";
+  out.identity = str(row.id_number || row.identity);
   out.departureEn = str(row.departure_en || out.departureEn);
   out.arrivalEn = str(row.arrival_en || out.arrivalEn);
   out.standing = row.standing === true || out.seatClass === "无座";
@@ -156,13 +197,14 @@ export function draft(record, source, note = "") {
   };
 }
 export function parsePaste(input) {
-  const lines = masked(input)
+  const lines = str(input)
     .split(/\r?\n/)
     .filter((s) => s.trim());
   const keys = Object.fromEntries(
     Object.entries(labels).map(([key, label]) => [label, key]),
   );
   Object.assign(keys, {
+    打码证件号: "identity",
     日期: "date",
     乘车日期: "date",
     金额: "fare",
@@ -183,7 +225,7 @@ export function parsePaste(input) {
       columns ||
       (cells.length >= 4 &&
         parseDate(cells[0]) &&
-        /^[a-z]?\d{1,5}$/i.test(cells[1]))
+        /^(?:DEMO|[a-z])?\d{1,5}$/i.test(cells[1]))
     ) {
       const map = columns || [
         "date",
@@ -208,7 +250,10 @@ export function parsePaste(input) {
     return draft(record, {
       kind: "粘贴文字",
       label: "文字第 " + (i + 1) + " 行",
-      text: line,
+      text: masked(line).replace(
+        record.identity || /^$/,
+        displayIdentity(record.identity),
+      ),
     });
   });
 }
@@ -357,7 +402,10 @@ function cardRows(lines, context, source) {
       {
         ...source,
         kind: context.points ? "积分详情" : "订单截图",
-        text: masked(text),
+        text: masked(text).replace(
+          row.identity || /^$/,
+          displayIdentity(row.identity),
+        ),
       },
       note,
     );
@@ -371,7 +419,7 @@ export function parseScreenshot(result, source) {
   const lines = result.lines.map((l) => ({
     ...l,
     text: normalized(
-      masked(l.text).replace(
+      l.text.replace(
         /(?<=[\u3400-\u9fff])\s+[一—]\s+(?=[\u3400-\u9fff])/g,
         "→",
       ),
@@ -385,7 +433,7 @@ export function parseScreenshot(result, source) {
     return [
       draft(
         { type: "trip" },
-        { ...source, kind: "积分列表", text },
+        { ...source, kind: "积分列表", text: masked(text) },
         "请补充行程详情弹窗",
       ),
     ];
@@ -439,7 +487,7 @@ export function parseScreenshot(result, source) {
     : [
         draft(
           { type: "trip" },
-          { ...source, text },
+          { ...source, text: masked(text) },
           "未能提取行程，请核对原图",
         ),
       ];

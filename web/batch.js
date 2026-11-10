@@ -1,7 +1,8 @@
 import {
   labels,
-  masked,
-  safeId,
+  identityModes,
+  displayIdentity,
+  applyPassenger,
   legacy,
   draft,
   parsePaste,
@@ -49,17 +50,31 @@ const evidenceLabel = (entry, fallback) => {
   );
 };
 
-export function initBatch(addToQueue, notify) {
+export function initBatch(addToQueue, notify, preview) {
   const rows = [],
     files = new Map();
   let recognizing = false,
     querying = false;
+  const defaults = () => ({
+    name: $("batch-name").value.trim(),
+    identity: $("batch-id").value.trim(),
+    identityMode: $("batch-mode").value,
+  });
+  const searchable = ({ record: r }) =>
+    r.type !== "fee" &&
+    !/^DEMO\d+$/i.test(r.train) &&
+    (!r.time || !r.fare) &&
+    !problems(r).length;
   const remaining = () => rows.filter((r) => r.selected && !r.added);
   const ready = () => remaining().filter((r) => !problems(r.record).length);
   const pending = () =>
     remaining().filter((r) => Object.keys(r.pending).length);
   function draw() {
     $("batch-review").hidden = !rows.length;
+    const stop = $("review-stop");
+    if (rows.length) stop.href = "#batch-review";
+    else stop.removeAttribute("href");
+    stop.setAttribute("aria-disabled", String(!rows.length));
     const tbody = $("batch-body");
     tbody.replaceChildren();
     for (const [idx, row] of rows.entries()) {
@@ -153,14 +168,7 @@ export function initBatch(addToQueue, notify) {
     $("batch-accept").disabled = !pending().length || querying;
     $("batch-accept").textContent =
       "采用所选查询结果（" + pending().length + " 条）";
-    $("batch-search").disabled =
-      querying ||
-      !remaining().some(
-        (r) =>
-          r.record.type !== "fee" &&
-          (!r.record.time || !r.record.fare) &&
-          !problems(r.record).length,
-      );
+    $("batch-search").disabled = querying || !remaining().some(searchable);
     $("batch-identify").disabled = !remaining().length;
     $("batch-summary").textContent =
       rows.length +
@@ -169,8 +177,24 @@ export function initBatch(addToQueue, notify) {
       " 条";
   }
   function add(list) {
+    const numbers = new Set(
+      rows
+        .flatMap((r) => r.sources.map((s) => s.invoiceNumber || s.pageKey))
+        .filter(Boolean),
+    );
+    list = list.filter((row) => {
+      const number = row.sources[0].invoiceNumber || row.sources[0].pageKey;
+      if (!number) return true;
+      if (numbers.has(number)) return false;
+      numbers.add(number);
+      return true;
+    });
+    const current = defaults();
+    for (const { record } of list) applyPassenger(record, current);
     rows.push(...list);
     draw();
+    if (list.length) preview(list[0].record);
+    return list.length;
   }
   const sourceInfo = (row, key) =>
     row.evidence[key] || row.record.provenance?.[key];
@@ -179,6 +203,14 @@ export function initBatch(addToQueue, notify) {
       const group = el("details");
       group.open = row.sources.length === 1;
       group.append(el("summary", source.kind + " · " + source.label));
+      if (source.file) {
+        source.pdfUrl ||= URL.createObjectURL(source.file);
+        const link = el("a", "查看来源 PDF · 第 " + source.page + " 页");
+        link.href = source.pdfUrl + "#page=" + source.page;
+        link.target = "_blank";
+        link.rel = "noopener";
+        group.append(link);
+      }
       if (source.image) {
         const im = el("img");
         im.src = source.image;
@@ -234,12 +266,14 @@ export function initBatch(addToQueue, notify) {
   }
   function inputFor(key, value) {
     let node = el("input");
-    if (key === "type") {
+    if (key === "type" || key === "identityMode") {
       node = el("select");
-      for (const [v, label] of [
-        ["trip", "乘车记录"],
-        ["fee", "改签费"],
-      ]) {
+      for (const [v, label] of key === "identityMode"
+        ? Object.entries(identityModes)
+        : [
+            ["trip", "乘车记录"],
+            ["fee", "改签费"],
+          ]) {
         const op = el("option", label);
         op.value = v;
         node.append(op);
@@ -247,7 +281,7 @@ export function initBatch(addToQueue, notify) {
     }
     if (key === "date" || key === "time") node.type = key;
     node.name = key;
-    node.value = value || "";
+    node.value = value || (key === "identityMode" ? "auto" : "");
     return node;
   }
   function prepareDialog(title) {
@@ -263,13 +297,21 @@ export function initBatch(addToQueue, notify) {
       const label = el("label", labels[k]),
         input = inputFor(k, row.record[k]);
       input.disabled = row.added;
-      if (k === "identity")
-        input.oninput = () => {
-          input.value = masked(input.value);
-        };
+      if (row.added && k === "identity")
+        input.value = displayIdentity(
+          row.record.identity,
+          row.record.identityMode,
+        );
       label.append(input);
       $("batch-editor").append(label);
     }
+    const editor = $("batch-editor");
+    const mode = editor.querySelector("[name=identityMode]");
+    const idField = editor.querySelector("[name=identity]").closest("label");
+    mode.onchange = () => {
+      idField.hidden = mode.value === "hide";
+    };
+    mode.onchange();
     sourceDetails($("batch-source"), row);
     if (!row.added && row.suggestedName && !row.record.name)
       $("batch-source").append(
@@ -283,11 +325,7 @@ export function initBatch(addToQueue, notify) {
       const before = JSON.stringify(queryOf(row.record)),
         next = { ...row.record };
       for (const field of $("batch-editor").querySelectorAll("[name]"))
-        next[field.name] = masked(field.value);
-      if (!safeId(next.identity)) {
-        $("batch-msg").textContent = "请使用已遮挡的证件号";
-        return;
-      }
+        next[field.name] = field.value.trim();
       for (const k of reviewKeys)
         if (next[k] !== row.record[k]) {
           row.evidence[k] = { kind: next[k] ? "用户修改" : "待补" };
@@ -304,6 +342,7 @@ export function initBatch(addToQueue, notify) {
       if (next.seatClass !== row.record.seatClass)
         next.standing = next.seatClass === "无座";
       row.record = next;
+      preview(next);
       row.note = "";
       $("batch-dialog").close();
       draw();
@@ -486,31 +525,15 @@ export function initBatch(addToQueue, notify) {
     draw();
   };
   $("batch-identify").onclick = () => {
-    const name = $("batch-name").value.trim(),
-      identity = masked($("batch-id").value);
-    if (!name && !identity) {
-      notify("请填写需要统一设置的姓名或打码证件号");
-      return;
-    }
-    if (!safeId(identity)) {
-      notify("请填写已遮挡的证件号");
-      return;
-    }
-    for (const r of remaining()) {
-      if (name) r.record.name = name;
-      if (identity) r.record.identity = identity;
-    }
-    $("batch-id").value = identity;
+    const current = defaults();
+    for (const r of remaining()) applyPassenger(r.record, current, true);
+    if (remaining().length) preview(remaining()[0].record);
     draw();
     notify("所选记录已更新");
   };
   $("batch-search").onclick = async () => {
-    const target = remaining().filter(
-      (r) =>
-        r.record.type !== "fee" &&
-        (!r.record.time || !r.record.fare) &&
-        !problems(r.record).length,
-    );
+    const target = remaining().filter(searchable);
+    if (!target.length) return;
     querying = true;
     draw();
     try {
@@ -591,4 +614,5 @@ export function initBatch(addToQueue, notify) {
     notify("已将 " + list.length + " 条加入排印清单");
   };
   draw();
+  return { add };
 }

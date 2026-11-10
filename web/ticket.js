@@ -1,3 +1,4 @@
+import { displayIdentity } from "./batch-data.js";
 import { pinyin } from "./vendor/pinyin/esm/index.mjs";
 
 let template;
@@ -61,14 +62,17 @@ export async function ticketFields(r) {
     amount == null || amount === ""
       ? ""
       : Number(amount).toFixed(
-          Number.isInteger(Math.round(Number(amount) * 100) / 10) ? 1 : 2,
+          /\.\d{2}$/.test(String(amount)) ||
+            Math.round(Number(amount) * 100) % 10
+            ? 2
+            : 1,
         );
-  const date = r.date.replace(/^(\d+)-(\d+)-(\d+)$/, "$1年$2月$3日");
+  const date = (r.date || "").replace(/^(\d+)-(\d+)-(\d+)$/, "$1年$2月$3日");
   return {
     serial: r.serial || "Z30M" + code,
     footer: r.footer || "16805301041001M" + code + " JM",
-    departure: fee ? "改签费" : departure + "站",
-    arrival: fee ? r.related || "" : arrival + "站",
+    departure: fee ? "改签费" : departure && departure + "站",
+    arrival: fee ? r.related || "" : arrival && arrival + "站",
     departure_en: fee ? "" : r.departureEn || romanize(departure),
     arrival_en: fee ? "" : r.arrivalEn || romanize(arrival),
     train: fee ? "" : r.train,
@@ -76,7 +80,9 @@ export async function ticketFields(r) {
     seat: fee ? "" : seatText(r),
     seat_class: fee ? "改签费" : r.seatClass || "",
     fare: amountText ? "￥" + amountText + "元" : "",
-    passenger: [r.identity, r.name].filter(Boolean).join("  "),
+    passenger: [displayIdentity(r.identity, r.identityMode), r.name]
+      .filter(Boolean)
+      .join("  "),
   };
 }
 

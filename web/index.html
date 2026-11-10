@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#154f51" />
+    <meta name="theme-color" content="#15558b" />
     <link rel="icon" href="data:," />
     <title>12306铁路报销凭证打印生成</title>
     <link rel="stylesheet" href="./vendor/fonts/font.css" />
@@ -20,15 +20,20 @@
     <main>
       <div class="intro">
         <h1>12306铁路报销凭证打印生成</h1>
-        <p>填写行程、批量识别截图或导入官方 PDF，预览后导出图片与打印文件。</p>
+        <p>填写行程、识别截图或读取铁路电子发票，生成蓝色票根。</p>
       </div>
+      <nav class="route" aria-label="制作步骤">
+        <a href="#entry">导入行程</a
+        ><a id="review-stop" aria-disabled="true">核对记录</a
+        ><a href="#queue">排印清单</a>
+      </nav>
       <div class="workspace">
-        <section class="panel entry">
+        <section class="panel entry" id="entry">
           <h2>添加记录</h2>
           <div class="tabs">
             <button id="manual-tab" aria-pressed="true">填写行程</button
             ><button id="batch-tab" aria-pressed="false">批量导入行程</button
-            ><button id="import-tab" aria-pressed="false">导入官方 PDF</button>
+            ><button id="import-tab" aria-pressed="false">电子发票</button>
           </div>
           <form id="form">
             <div class="form-grid">
@@ -46,7 +51,7 @@
                 >车次 *<input
                   name="train"
                   maxlength="20"
-                  placeholder="如 G1234"
+                  placeholder="如 DEMO01"
                   required
               /></label>
               <label data-trip
@@ -75,7 +80,7 @@
                 >关联行程（选填）<input
                   name="related"
                   maxlength="80"
-                  placeholder="如 G1234 · 云桥站至南川站"
+                  placeholder="如 DEMO01 · 云灯谷站至星栖湾站"
               /></label>
             </div>
             <details id="extras">
@@ -143,11 +148,16 @@
                     maxlength="32"
                     autocomplete="off"
                 /></label>
-                <label class="wide"
-                  >已打码的证件号<input
+                <label
+                  >证件号显示方式<select
+                    name="identityMode"
+                    data-id-mode
+                  ></select
+                ></label>
+                <label class="wide" id="manual-id-field"
+                  >证件号（选填）<input
                     name="identity"
                     maxlength="32"
-                    placeholder="如 12**************34"
                     autocomplete="off"
                 /></label>
               </div>
@@ -157,12 +167,32 @@
               ><button type="button" id="cancel-edit" hidden>取消编辑</button>
             </div>
           </form>
+          <details id="passenger-defaults" hidden open>
+            <summary>本次默认乘车人 <small>选填</small></summary>
+            <p class="hint">
+              导入前可填写。已有乘车人信息优先，本次填写在刷新后清空。
+            </p>
+            <div class="form-grid">
+              <label
+                >姓名<input id="batch-name" maxlength="32" autocomplete="off"
+              /></label>
+              <label
+                >证件号显示方式<select id="batch-mode" data-id-mode></select
+              ></label>
+              <label class="wide" id="default-id-field"
+                >证件号（选填）<input
+                  id="batch-id"
+                  maxlength="32"
+                  autocomplete="off"
+              /></label>
+            </div>
+          </details>
           <div id="batch-panel" hidden>
             <label class="batch-input"
               >粘贴行程（支持 Excel 多行）<textarea
                 id="batch-text"
                 rows="3"
-                placeholder="2025-10-08 G1538 安顺西→武汉 二等座"
+                placeholder="2025-10-08 DEMO01 云灯谷→星栖湾 二等座"
               ></textarea>
             </label>
             <button id="batch-paste">读取文字</button>
@@ -186,15 +216,25 @@
           </div>
           <div id="import-panel" hidden>
             <label class="upload"
-              >选择 12306 官方 PDF<input
+              >导入铁路电子发票，生成票根<input
                 id="files"
                 type="file"
                 multiple
                 accept=".pdf,application/pdf"
             /></label>
             <p class="hint">
-              支持一次选择多个文件。每一页会按原顺序加入清单，可直接按原尺寸导出。
+              支持多文件和多页。在本机读取行程后，可对照原件核对，再加入排印。
             </p>
+            <details>
+              <summary>按原尺寸打印官方 PDF</summary>
+              <label class="upload"
+                >选择要原样排印的 PDF<input
+                  type="file"
+                  id="original-files"
+                  multiple
+                  accept=".pdf,application/pdf"
+              /></label>
+            </details>
             <a
               href="https://passport.12306.cn/otn/view/invoice_index.html"
               target="_blank"
@@ -245,18 +285,7 @@
             <tbody id="batch-body"></tbody>
           </table>
         </div>
-        <details>
-          <summary>统一填写所选乘车人信息</summary>
-          <div class="form-grid">
-            <label>姓名<input id="batch-name" /></label
-            ><label
-              >打码证件号<input
-                id="batch-id"
-                placeholder="如 12**************34"
-            /></label>
-          </div>
-          <button id="batch-identify">应用到所选记录</button>
-        </details>
+        <button id="batch-identify">将本次默认乘车人应用到所选记录</button>
         <p class="hint">
           查询仅发送日期、车次、区间、席别和铺位。核对来源后可一次采用所选参考值。
         </p>
@@ -278,7 +307,7 @@
         <p id="batch-msg" role="status"></p>
         <button id="batch-save" class="primary">保存核对结果</button>
       </dialog>
-      <section class="panel queue">
+      <section class="panel queue" id="queue">
         <div class="heading">
           <h2>排印清单</h2>
           <span class="badge" id="count">已选 0 / 0</span>
