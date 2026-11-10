@@ -1,3 +1,4 @@
+import { initBatch } from "./batch.js";
 import { demo, recordCanvas, readPdf, title } from "./render.js";
 import { a4Preview, collage, makePdf, png, singlePng, save } from "./output.js";
 
@@ -93,12 +94,14 @@ function switchMode(next) {
   mode = next;
   $("manual-tab").setAttribute("aria-pressed", String(next === "manual"));
   $("import-tab").setAttribute("aria-pressed", String(next === "import"));
+  $("batch-tab").setAttribute("aria-pressed", String(next === "batch"));
+  $("batch-panel").hidden = next !== "batch";
   form.hidden = next !== "manual";
   $("import-panel").hidden = next !== "import";
   if (next === "manual") {
     visibility();
     draft();
-  } else {
+  } else if (next === "import") {
     const row = items.find((i) => i.type === "pdf");
     if (row) showItem(row);
     else proof(demo, "示例票面", "选择官方 PDF 后显示页面预览");
@@ -216,7 +219,23 @@ form.onsubmit = (e) => {
     return;
   }
   const index = editing ? items.indexOf(editing) : -1;
-  const row = { ...r, checked: index >= 0 ? items[index].checked : true };
+  const row = {
+    ...r,
+    standing:
+      r.seatClass === "无座" ||
+      !!(editing?.standing && r.seatClass === editing.seatClass && !r.seat),
+    checked: index >= 0 ? items[index].checked : true,
+  };
+  if (editing) {
+    for (const key of ["id", "serial", "footer"])
+      if (editing[key]) row[key] = editing[key];
+    if (editing.provenance) {
+      row.provenance = { ...editing.provenance };
+      for (const key of ["fare", "time"])
+        if (row[key] !== editing[key])
+          row.provenance[key] = { kind: "用户修改" };
+    }
+  }
   if (index >= 0) items[index] = row;
   else items.push(row);
   resetForm();
@@ -228,6 +247,12 @@ $("cancel-edit").onclick = () => {
   resetForm();
   draft();
 };
+initBatch((records) => {
+  items.push(...records);
+  refresh();
+  if (records.length) showItem(records[0]);
+}, notify);
+$("batch-tab").onclick = () => switchMode("batch");
 $("manual-tab").onclick = () => switchMode("manual");
 $("import-tab").onclick = () => switchMode("import");
 $("files").onchange = async (e) => {
@@ -331,3 +356,4 @@ $("download").onclick = async () => {
 visibility();
 refresh();
 draft();
+if (location.hash === "#batch") switchMode("batch");

@@ -28,7 +28,7 @@ function romanize(station) {
 }
 function seatText(r) {
   const coach = r.coach ? r.coach.padStart(2, "0") + "车" : "";
-  if (r.seatClass === "无座") return coach + "无座";
+  if (r.standing || r.seatClass === "无座") return coach + "无座";
   if (!r.seat) return coach + (r.berth || "");
   let seat = r.seat.replace(/^0+(?=\d)/, "");
   if (/^\d+$/.test(seat)) seat = seat.padStart(r.berth ? 2 : 3, "0");
@@ -65,8 +65,8 @@ export async function ticketFields(r) {
         );
   const date = r.date.replace(/^(\d+)-(\d+)-(\d+)$/, "$1年$2月$3日");
   return {
-    serial: "Z30M" + code,
-    footer: "16805301041001M" + code + " JM",
+    serial: r.serial || "Z30M" + code,
+    footer: r.footer || "16805301041001M" + code + " JM",
     departure: fee ? "改签费" : departure + "站",
     arrival: fee ? r.related || "" : arrival + "站",
     departure_en: fee ? "" : r.departureEn || romanize(departure),

@@ -20,13 +20,14 @@
     <main>
       <div class="intro">
         <h1>12306铁路报销凭证打印生成</h1>
-        <p>填写行程或导入官方 PDF，预览后导出图片与打印文件。</p>
+        <p>填写行程、批量识别截图或导入官方 PDF，预览后导出图片与打印文件。</p>
       </div>
       <div class="workspace">
         <section class="panel entry">
           <h2>添加记录</h2>
           <div class="tabs">
             <button id="manual-tab" aria-pressed="true">填写行程</button
+            ><button id="batch-tab" aria-pressed="false">批量导入行程</button
             ><button id="import-tab" aria-pressed="false">导入官方 PDF</button>
           </div>
           <form id="form">
@@ -156,6 +157,33 @@
               ><button type="button" id="cancel-edit" hidden>取消编辑</button>
             </div>
           </form>
+          <div id="batch-panel" hidden>
+            <label class="batch-input"
+              >粘贴行程（支持 Excel 多行）<textarea
+                id="batch-text"
+                rows="3"
+                placeholder="2025-10-08 G1538 安顺西→武汉 二等座"
+              ></textarea>
+            </label>
+            <button id="batch-paste">读取文字</button>
+            <label class="upload"
+              >选择订单或积分截图<input
+                id="batch-images"
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp"
+            /></label>
+            <p class="hint">图片在本机逐张识别。积分页面请展开白色行程详情。</p>
+            <p id="image-progress" role="status"></p>
+            <ul id="image-jobs"></ul>
+            <label class="upload"
+              >导入已有行程 JSON<input
+                id="batch-json"
+                type="file"
+                multiple
+                accept=".json,application/json"
+            /></label>
+          </div>
           <div id="import-panel" hidden>
             <label class="upload"
               >选择 12306 官方 PDF<input
@@ -188,6 +216,68 @@
           </p>
         </section>
       </div>
+      <section id="batch-review" class="panel queue" hidden>
+        <div class="heading">
+          <h2>批量核对</h2>
+          <span id="batch-summary" class="badge"></span>
+        </div>
+        <div class="batch-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    id="select-batch"
+                    aria-label="全选待处理行程"
+                  />
+                </th>
+                <th>来源</th>
+                <th>日期</th>
+                <th>车次</th>
+                <th>区间</th>
+                <th>开车时间</th>
+                <th>金额（元）</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="batch-body"></tbody>
+          </table>
+        </div>
+        <details>
+          <summary>统一填写所选乘车人信息</summary>
+          <div class="form-grid">
+            <label>姓名<input id="batch-name" /></label
+            ><label
+              >打码证件号<input
+                id="batch-id"
+                placeholder="如 12**************34"
+            /></label>
+          </div>
+          <button id="batch-identify">应用到所选记录</button>
+        </details>
+        <p class="hint">
+          查询仅发送日期、车次、区间、席别和铺位。核对来源后可一次采用所选参考值。
+        </p>
+        <div class="actions batch-actions">
+          <button id="batch-search">查询缺失信息</button
+          ><button id="batch-accept">采用所选查询结果</button
+          ><button id="batch-commit" class="primary">加入排印</button>
+        </div>
+      </section>
+      <dialog id="batch-dialog">
+        <div class="heading">
+          <h2 id="batch-dialog-title"></h2>
+          <button id="batch-close">关闭</button>
+        </div>
+        <div class="batch-columns">
+          <div id="batch-source"></div>
+          <div id="batch-editor" class="form-grid"></div>
+        </div>
+        <p id="batch-msg" role="status"></p>
+        <button id="batch-save" class="primary">保存核对结果</button>
+      </dialog>
       <section class="panel queue">
         <div class="heading">
           <h2>排印清单</h2>

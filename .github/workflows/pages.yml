@@ -23,7 +23,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --omit=optional --ignore-scripts
+      - run: npm test
       - run: npm run build
+        env:
+          RAIL_LOOKUP_URL: ${{ vars.RAIL_LOOKUP_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

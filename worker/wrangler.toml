@@ -1,0 +1,15 @@
+name = "railway-travel-lookup"
+main = "index.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+SITE_ORIGIN = "https://lgmhg.github.io"
+FREE_CALL_LIMIT = "0"
+
+[[durable_objects.bindings]]
+name = "LOOKUP"
+class_name = "RailLookup"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RailLookup"]

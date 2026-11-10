@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "description": "12306铁路报销凭证打印生成",
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js"
   },
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "@fontsource/noto-serif-sc": "5.3.1",
+    "@tesseract.js-data/chi_sim": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "5.4.624",
-    "pinyin-pro": "3.29.5"
+    "pinyin-pro": "3.29.5",
+    "tesseract.js": "7.0.0"
   }
 }

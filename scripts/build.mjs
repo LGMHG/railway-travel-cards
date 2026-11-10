@@ -38,3 +38,39 @@ for (const match of css.matchAll(/url\(\.\/(files\/[^)]+)\)/g)) {
 }
 await cp("LICENSE", output + "/LICENSE");
 await writeFile(output + "/.nojekyll", "");
+
+const ocr = vendor + "/ocr";
+await mkdir(ocr + "/core", { recursive: true });
+await mkdir(ocr + "/lang", { recursive: true });
+for (const file of [
+  "tesseract.esm.min.js",
+  "worker.min.js",
+  "worker.min.js.LICENSE.txt",
+  "tesseract.min.js.LICENSE.txt",
+]) {
+  await cp("node_modules/tesseract.js/dist/" + file, ocr + "/" + file);
+}
+await cp("node_modules/tesseract.js/LICENSE.md", ocr + "/LICENSE.md");
+await cp("node_modules/tesseract.js-core/LICENSE", ocr + "/core/LICENSE");
+for (const variant of ["", "-simd", "-relaxedsimd"]) {
+  const file = "tesseract-core" + variant + "-lstm.wasm.js";
+  await cp("node_modules/tesseract.js-core/" + file, ocr + "/core/" + file);
+}
+for (const lang of ["chi_sim", "eng"]) {
+  await cp(
+    "node_modules/@tesseract.js-data/" +
+      lang +
+      "/4.0.0_best_int/" +
+      lang +
+      ".traineddata.gz",
+    ocr + "/lang/" + lang + ".traineddata.gz",
+  );
+}
+await cp(
+  "node_modules/tesseract.js-core/LICENSE",
+  ocr + "/lang/LICENSE-Apache-2.0",
+);
+await writeFile(
+  output + "/lookup-config.json",
+  JSON.stringify({ url: process.env.RAIL_LOOKUP_URL || "" }),
+);

@@ -20,17 +20,42 @@
 
 打印 A4 十格 PDF 时选择 **A4、纵向、实际大小／100%**。导入的整页发票缩入十格后字会变小，可改选原尺寸。原文件请自行留存。
 
+## 批量导入
+
+打开“批量导入行程”，粘贴一行一趟的文字、从 Excel 复制带列名的表格，或选择多张 PNG、JPG、WebP 截图。文字示例为「2025-10-08 G1538 安顺西→武汉 二等座」。表格可使用日期、车次、出发站、到达站、席别、发车时间、票价等列名。旧渲染器的单条 JSON 或批量数组也可直接导入。
+
+首次选择图片时，浏览器从本站加载 Tesseract.js 和中英文识别模型。订单按卡片和乘车人拆分，积分详情优先读取弹窗。点“核对”可同时查看原图、原始识别文字、字段及查询来源。对不清楚的姓名或金额，可在这里改正。重复图片会被跳过；身份明确的疑似重复行程可手动比较合并。勾选多行可以统一填写打码证件号和姓名。
+
+点击“查询缺失信息”才会向站点查询服务发送乘车日期、车次、起终点、席别和铺位。查询结果先显示为候选；同一批次可一次采用。已填金额、时间以及积分订单里的票面显示金额优先。服务不可用时，可手动补录或留空。点击“将已就绪的 N 条加入排印”，再在下方清单选择导出方式。已加入的行不会再次提交。
+
+## 配置免费联网查询（站点维护者）
+
+查询后端在 Cloudflare Workers Free 上运行，一个 SQLite-backed Durable Object 持久记录全站上游调用次数并缓存当日结果。只使用供应商账号中已开通的免费次数。下面的额度是**全站自启用后的累计上限**；配置为独占该应用的免费接口剩余次数（最多 50），默认为 0。请求发出前先预留一次；即使上游超时，该次也计入本地预算。请在供应商端关闭付费续用，保留同一额度对象与名称。[供应商接口与套餐](https://m.jisuapi.com/api/train/)
+
+1. 在 Cloudflare 免费账户登录 Wrangler，在「worker/wrangler.toml」把 SITE_ORIGIN 改为本站的源（协议加域名），FREE_CALL_LIMIT 填首次启用时已确认的剩余免费次数。
+2. 在项目根目录运行以下命令。在交互提示中输入极速数据密钥，密钥仅保存在 Worker Secret 中。
+
+```sh
+npx wrangler@4 login
+npx wrangler@4 deploy --config worker/wrangler.toml
+npx wrangler@4 secret put JISU_APPKEY --config worker/wrangler.toml
+```
+
+3. 在 GitHub 仓库的 Actions Variables 中设置 RAIL_LOOKUP_URL，取 Worker 部署返回的 HTTPS 地址加上 /lookup，再运行 Pages 工作流。本地测试可将同名环境变量设为本地 Worker 地址后重新构建，SITE_ORIGIN 须匹配本地前端源。前端仅保存服务地址。
+4. 用一趟公开行程检查真实查询、来源日期和余额。过去日期的上游结果只有明确匹配服务日期时才作为当日资料，否则尝试查询现行值。默认零额度、上游额度耗尽或没有密钥时，网站会提示原因。
+
 ## 本地运行
 
 需要 Node.js 24、npm 和静态 HTTP 服务。以下示例使用 Python 3 启动本地预览。
 
 ```sh
 npm ci --omit=optional --ignore-scripts
+npm test
 npm run build
 python -m http.server 8000 --bind 127.0.0.1 --directory dist
 ```
 
-浏览器打开 `http://127.0.0.1:8000/`。可从任意静态 HTTP(S) 站点的子目录提供构建好的 `dist/`。页面、字体、PDF.js 工作线程和解码资源均由本站提供，用户填写的资料和导入的 PDF 只在浏览器内存中处理。
+浏览器打开 `http://127.0.0.1:8000/`。可从任意静态 HTTP(S) 站点的子目录提供构建好的 `dist/`。页面、字体、PDF.js 工作线程和解码资源均由本站提供，图片、OCR 文字、姓名、证件号和 PDF 都在浏览器内处理。联网补全仅发送上文列出的行程字段。
 
 ## GitHub Pages
 
@@ -48,3 +73,4 @@ python -m http.server 8000 --bind 127.0.0.1 --directory dist
 - [Noto Serif SC](https://fontsource.org/fonts/noto-serif-sc) 使用 SIL Open Font License 1.1，随网站分发的字体保留许可文件。
 - [PDF.js](https://github.com/mozilla/pdf.js) 使用 Apache-2.0，[pdf-lib](https://github.com/Hopding/pdf-lib) 使用 MIT；构建时同时复制它们的许可及 PDF.js 随附资源的许可。
 - 蓝色背景来自本项目先前生成的 v03 空白样张，已移除可变行程字段。站名转写使用 pinyin-pro（MIT）。
+- 截图识别使用 [Tesseract.js](https://github.com/naptha/tesseract.js)、tesseract.js-core 与 Tesseract 的简体中文和英文训练数据，相关许可随本地 OCR 资源分发。
