@@ -1,0 +1,19 @@
+{
+  "version": "v03-fixed-1",
+  "canvas": [1586, 992],
+  "base": "blue-ticket-base.png",
+  "fields": {
+    "serial": {"box": [130, 72, 630, 146], "font": "sans", "size": 78, "color": "#cc5658"},
+    "departure": {"box": [157, 157, 582, 262], "font": "cn", "size": 100, "stroke": 2, "spread": true, "station_suffix_size": 66},
+    "arrival": {"box": [1052, 157, 1435, 262], "font": "cn", "size": 100, "stroke": 2, "spread": true, "station_suffix_size": 66},
+    "train": {"box": [675, 164, 960, 252], "font": "latin", "size": 100},
+    "departure_en": {"box": [150, 260, 582, 314], "font": "latin_bold", "size": 49, "align": "center"},
+    "arrival_en": {"box": [1030, 260, 1455, 314], "font": "latin_bold", "size": 49, "align": "center"},
+    "datetime": {"box": [125, 331, 845, 397], "font": "cn", "size": 46, "ascii_font": "sans", "ascii_size": 68, "stroke": 1},
+    "seat": {"box": [1025, 331, 1435, 397], "font": "cn", "size": 50, "ascii_font": "sans", "ascii_size": 66, "stroke": 1},
+    "fare": {"box": [125, 410, 625, 486], "font": "cn", "size": 58, "ascii_font": "sans", "ascii_size": 80, "stroke": 1},
+    "seat_class": {"box": [1060, 410, 1430, 486], "font": "cn", "size": 62, "stroke": 1, "align": "center"},
+    "passenger": {"box": [132, 635, 1115, 703], "font": "cn", "size": 62, "ascii_font": "sans", "ascii_size": 62},
+    "footer": {"box": [115, 890, 1130, 951], "font": "latin", "size": 56}
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "蓝色铁路乘车记录"
+  short_description: "将个人铁路行程与电子客票整理为记录，离线批量生成蓝色 v03 票根"
+  default_prompt: "使用 $railway-blue-ticket-record 将我的行程整理为 v03 蓝色个人乘车票根。"

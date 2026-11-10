@@ -1,0 +1,15 @@
+{
+  "id": "demo-01",
+  "date": "2026-05-16",
+  "train": "DEMO01",
+  "departure": "云灯谷",
+  "departure_en": "Yundenggu",
+  "arrival": "星栖湾",
+  "arrival_en": "Xingqiwan",
+  "time": "09:20",
+  "coach": "03",
+  "seat": "08A",
+  "seat_class": "二等座",
+  "fare": "68.00",
+  "name": "示例旅客"
+}

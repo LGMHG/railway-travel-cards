@@ -44,6 +44,10 @@ npx wrangler@4 secret put JISU_APPKEY --config worker/wrangler.toml
 3. 在 GitHub 仓库的 Actions Variables 中设置 RAIL_LOOKUP_URL，取 Worker 部署返回的 HTTPS 地址加上 /lookup，再运行 Pages 工作流。本地测试可将同名环境变量设为本地 Worker 地址后重新构建，SITE_ORIGIN 须匹配本地前端源。前端仅保存服务地址。
 4. 用一趟公开行程检查真实查询、来源日期和余额。过去日期的上游结果只有明确匹配服务日期时才作为当日资料，否则尝试查询现行值。默认零额度、上游额度耗尽或没有密钥时，网站会提示原因。
 
+## Codex 技能
+
+[railway-blue-ticket-record](skills/railway-blue-ticket-record/SKILL.md) 可在本机按同一 v03 版式离线生成个人票根。将整个 `skills/railway-blue-ticket-record` 目录复制到 Codex 的用户技能目录，开启新会话后使用 `$railway-blue-ticket-record`。技能附有虚构示例和 Python 命令，依赖 Pillow 与系统中文字体。
+
 ## 本地运行
 
 需要 Node.js 24、npm 和静态 HTTP 服务。以下示例使用 Python 3 启动本地预览。
