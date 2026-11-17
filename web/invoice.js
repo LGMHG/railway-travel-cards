@@ -1,3 +1,4 @@
+import { routeTrainPattern, exactTrainPattern } from "./train.js";
 import { draft, displayIdentity, normalized } from "./batch-data.js";
 import { recordCanvas } from "./render.js";
 
@@ -62,8 +63,7 @@ function textFields(lines) {
     (s) => !/开票|购买方|税|电子客票号|发票号码|原票/.test(s),
   );
   const text = trip.join("\n");
-  const train =
-    /(?<![A-Za-z0-9])((?:DEMO|[GDCZTKYSLA])\s*\d{1,5}|\d{3,5})(?![A-Za-z0-9])/i;
+  const train = routeTrainPattern;
   const route = trip.find(
     (s) =>
       train.test(s) &&
@@ -72,9 +72,7 @@ function textFields(lines) {
       /[\u3400-\u9fff]/.test(s.split(train).at(-1)),
   );
   const sides = route?.split(train) || [];
-  const standalone = trip.find((s) =>
-    /^(?:DEMO|[GDCZTKYSLA])\s*\d{1,5}$/i.test(s.trim()),
-  );
+  const standalone = trip.find((s) => exactTrainPattern.test(s.trim()));
   const station = (s) =>
     (s || "")
       .match(/[\u3400-\u9fff]+/g)
@@ -101,7 +99,9 @@ function textFields(lines) {
       standalone ||
       text.match(/车次[:：]?\s*([A-Z]+\d+|\d+)/i)?.[1] ||
       ""
-    ).replace(/\s/g, ""),
+    )
+      .replace(/\s/g, "")
+      .toUpperCase(),
     departure: station(sides[0]),
     arrival: station(sides[2]),
     departureEn: pinyin[0] || "",

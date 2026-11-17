@@ -19,3 +19,9 @@
 电子发票附件可按元素的本地名称读取。乘车日期用 `TravelDate`，时间用 `DepartureTime`，区间用 `DepartureStation` 和 `DestinationStation`，金额用 `Fare`，乘客用 `Name`。车次、车厢、席位对应 `TrainNumber`、`Carriage`、`Seat`；将「13车」「008号」整理为 `"13"`、`"008"`。同一个 PDF 同时含 XML 和票面文字时只录入一次。
 
 固定底图和坐标由技能内 `assets/blue-ticket-base.png` 和 `assets/layout.json` 提供。维护渲染器后运行 `python scripts/check_renderer.py`，检查静态底图、输出像素、隐私显示和批量行为。
+
+## 2026 年车次兼容
+
+识别支持新增旅客车次字头 N、V、X，并兼容历史 T、K、Z、L、A 和纯数字车次。按订单、发票或用户核对的车次生成票根，保留该次行程的原始车次。新旧车次映射需核对铁路官方对照及适用日期，数字号段也可能调整。
+
+2026 年 11 月 25 日零时起始发的普速旅客列车启用 Z、N、V 编排，旅游列车使用 Y。动车组相关调整安排在 12 月下旬，具体日期以铁路后续公告为准。新版 T、K 用于动车组，查询席别和票价时应结合乘车日期及实际资料。X 为新编旅客车次字头，支持识别不表示对应列车已经开行。[12306 公告](https://mobile.12306.cn/mormhweb/zxdt/202611/t20261105_46591.html) · [中国铁路新版编排说明](https://news.cri.cn/20261016/36d328ca-d415-4ad7-9967-503d4fdd9f11.html)

@@ -34,6 +34,11 @@ def main():
     assert prepare({**minimal, "record_type": "change_fee", "fare": "0.00"})[1]["fare"] == "￥0.00元"
     assert prepare({**minimal, "record_type": "change_fee", "fare": 5})[1]["departure"] == "改签费"
 
+    for train in ("N1998", "V5998", "V6998", "V7998", "X9998", "T123", "K123", "4818"):
+        record, fields = prepare({**demo, "date": "2026-11-25", "train": train})
+        assert record["train"] == fields["train"] == train
+        assert render(record)[0].size == (1586, 992)
+
     number = "110000" + "00000000" + "0000"
     private = {**demo, "id_number": number, "provenance": {"note": number}}
     for mode, expected in (("auto", "110000********0000"), ("raw", number), ("hide", "")):

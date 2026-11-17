@@ -34,6 +34,90 @@ test("free text and Excel headers, optional blanks, identity masking", () => {
   assert(problems({ ...a.record, date: "2026-02-30" }).length);
 });
 const line = (text, y, x = 0.3) => ({ text, y, x, confidence: 95 });
+test("2026 prefixes survive paste, Excel, orders, points and exact lookup", () => {
+  for (const train of [
+    "N1998",
+    "V5998",
+    "V6998",
+    "V7998",
+    "X9998",
+    "T123",
+    "K123",
+    "Z123",
+    "Y1001",
+    "G123",
+    "D123",
+    "C123",
+    "S123",
+    "L123",
+    "A123",
+  ]) {
+    const source = train[0].toLowerCase() + " " + train.slice(1);
+    const [paste] = parsePaste("2026-11-25 " + source + " 云灯谷→星栖湾");
+    assert.equal(paste.record.train, train);
+    assert.deepEqual(problems(paste.record), []);
+    const [excel] = parsePaste("2026-11-25\t" + train + "\t云灯谷\t星栖湾");
+    assert.equal(excel.record.train, train);
+    for (const modal of [true, false]) {
+      const [shot] = parseScreenshot(
+        {
+          modal,
+          lines: [
+            line("订单号:DEMO", 0.1),
+            line(source, 0.32, 0.5),
+            line("云灯谷", 0.34, 0.2),
+            line("星栖湾", 0.34, 0.8),
+            line("2026年11月25日", 0.37, 0.5),
+            line("硬座 13车 008号", 0.56),
+            line("积分有效期:2027年11月25日", 0.7),
+          ],
+        },
+        {},
+      );
+      assert.equal(shot.record.train, train);
+      assert.equal(shot.record.departure, "云灯谷");
+      assert.equal(shot.record.arrival, "星栖湾");
+      assert.equal(shot.record.date, "2026-11-25");
+    }
+    const query = { ...q, train };
+    assert(validQuery(query));
+    assert.equal(
+      matchTrain([{ ...upstream, trainno: train }], query, today, today).fare,
+      "65.00",
+    );
+    assert.equal(
+      matchTrain([{ ...upstream, trainno: "B123" }], query, today, today),
+      null,
+    );
+  }
+  for (const text of [
+    "2026-11-25 云灯谷→星栖湾",
+    "订单号:AN123456 2026-11-25 云灯谷→星栖湾",
+  ])
+    assert.equal(parsePaste(text)[0].record.train, "");
+  assert.equal(
+    legacy({
+      date: "2026-11-24",
+      train: "K123",
+      departure: "云灯谷",
+      arrival: "星栖湾",
+    }).train,
+    "K123",
+  );
+  const [historic] = parseScreenshot(
+    {
+      lines: [
+        line("乘车日期:2020年01月01日", 0.1),
+        line("订单号:DEMO", 0.2),
+        line("4818", 0.32, 0.5),
+        line("云灯谷", 0.34, 0.2),
+        line("星栖湾", 0.34, 0.8),
+      ],
+    },
+    {},
+  );
+  assert.equal(historic.record.train, "4818");
+});
 test("multi-passenger order has separate amounts; order total is only a note", () => {
   const rows = parseScreenshot(
     {

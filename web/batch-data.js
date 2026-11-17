@@ -1,3 +1,5 @@
+import { trainPattern, exactTrainPattern } from "./train.js";
+
 export const labels = {
   type: "记录类型",
   date: "乘车或费用日期",
@@ -68,8 +70,6 @@ export const normalized = (s) =>
     .replace(/(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, "");
 const seatClassPattern =
   /新空调(?:硬卧|硬座)|高级软卧|二等座|一等座|商务座|特等座|无座|硬卧|软卧|动卧|硬座|软座/;
-const trainPattern =
-  /(?<![A-Z0-9])((?:DEMO|[GDCZTKYSLA])\s*\d{1,5})(?![A-Z0-9])/i;
 function parseDate(text) {
   const m = text.match(
     /(20\d{2})\s*[年.\/-]\s*(\d{1,2})\s*[月.\/-]\s*(\d{1,2})(?:日)?/,
@@ -277,7 +277,7 @@ function cardRows(lines, context, source) {
     (l) =>
       l.x > 0.25 &&
       l.x < 0.75 &&
-      /^(?:[GDCZTKYSLA]\d{1,5}|\d{3,5})$/i.test(l.text.replace(/\s/g, "")),
+      exactTrainPattern.test(l.text.replace(/\s/g, "")),
   );
   if (trainLine) rec.train = trainLine.text.replace(/\s/g, "").toUpperCase();
   const d = common
